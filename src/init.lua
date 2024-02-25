@@ -23,10 +23,6 @@ if RunService:IsClient() and RunService:IsRunning() then
 	MODULE_LOCATIONS[#MODULE_LOCATIONS + 1] = game.Players.LocalPlayer:WaitForChild("PlayerScripts")
 end
 
---\\ Module //--
-
-local Quilt = {}
-
 --\\ Private //--
 
 local accessors = {}
@@ -56,9 +52,7 @@ local function getModules()
 	end
 end
 
---\\ Public //--
-
-function Quilt.Initialize()
+local function initialize()
     for moduleName, accessor in accessors do
 		if getmetatable(accessor) then continue end
 
@@ -85,7 +79,7 @@ function Quilt.Initialize()
     end
 end
 
-function Quilt.Import(moduleName: string): table
+local function import(moduleName: string): table
 	if not table.find(requireStack, moduleName) then
 		getModules()
 		local moduleScript = moduleScripts[moduleName]
@@ -99,7 +93,7 @@ function Quilt.Import(moduleName: string): table
 		requireStack[#requireStack] = nil
 
 		if #requireStack == 0 then
-			Quilt.Initialize()
+			initialize()
 		end
 
 		return module
@@ -113,10 +107,6 @@ function Quilt.Import(moduleName: string): table
     return accessor
 end
 
-setmetatable(Quilt, {__call = function(_, ...)
-	return Quilt.Import(...)
-end})
-
 --\\ Return //--
 
-return Quilt
+return import
