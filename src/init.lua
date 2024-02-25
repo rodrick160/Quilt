@@ -4,7 +4,24 @@
 
 --\\ Dependencies //--
 
-local SharedTableRegistry = game:GetService("SharedTableRegistry")
+local RunService = game:GetService("RunService")
+
+--\\ Constants //--
+
+local MODULE_LOCATIONS = {
+	workspace,
+	game.Players,
+	game.Lighting,
+	game.ReplicatedFirst,
+	game.ReplicatedStorage,
+	game.ServerScriptService,
+	game.ServerStorage,
+	game.SoundService,
+}
+
+if RunService:IsClient() and RunService:IsRunning() then
+	MODULE_LOCATIONS[#MODULE_LOCATIONS + 1] = game.Players.LocalPlayer:WaitForChild("PlayerScripts")
+end
 
 --\\ Module //--
 
@@ -12,83 +29,42 @@ local Quilt = {}
 
 --\\ Private //--
 
-local initialized = false
 local accessors = {}
-local moduleScripts
 local modules = {}
+local moduleScripts
 local requireStack = {}
 
-local moduleScriptPaths = SharedTableRegistry:GetSharedTable("ModuleScriptPaths")
-if not moduleScriptPaths then
-	moduleScriptPaths = SharedTable.new()
-	SharedTableRegistry:SetSharedTable("ModuleScriptPaths", moduleScriptPaths)
-end
-
-local function generatePath(instance: Instance): string
-	local path = ""
-	local traveller = instance
-	repeat
-		if traveller ~= instance then
-			path = "/" .. path
-		end
-		path = traveller.Name:gsub("/", "\1") .. path
-		traveller = traveller.Parent
-	until traveller == game
-
-	return path
-end
-
-local function addModules(instances: {Instance})
-    for _, instance in instances do
-        if instance:IsA("ModuleScript") then
-			if moduleScriptPaths[instance.Name] then
-				error("Duplicate module \"" .. instance.Name .. "\".")
-			end
-            moduleScriptPaths[instance.Name] = generatePath(instance)
-        end
-    end
-end
-
-local function getModuleScripts(): {ModuleScript}
+local function getModules()
 	if moduleScripts then return end
-
 	moduleScripts = {}
-	for moduleName, modulePath in moduleScriptPaths do
-		local traveller = game
-		for _, childName in modulePath:split("/") do
-			childName = childName:gsub("\1", "/")
-			traveller = traveller[childName]
+
+	local function _getModules(parent: Instance)
+		for _, child in parent:GetChildren() do
+			if child.Name == "_Index" then continue end
+			if child:IsA("ModuleScript") then
+				if moduleScripts[child.Name] then
+					error(`Duplicate module "{child.Name}" found.`)
+				end
+				moduleScripts[child.Name] = child
+			end
+			_getModules(child)
 		end
-		moduleScripts[moduleName] = traveller
+	end
+
+	for _, location in MODULE_LOCATIONS do
+		_getModules(location)
 	end
 end
 
 --\\ Public //--
 
-function Quilt.AddModulesDeep(root: Instance)
-	addModules(root:GetDescendants())
-end
-
-function Quilt.AddModules(root: Instance)
-	addModules(root:GetChildren())
-end
-
 function Quilt.Initialize()
-	if initialized then
-		error("Attempt to initialize Quilt twice.", 2)
-	end
-
-	getModuleScripts()
-	for moduleName, moduleScript in moduleScripts do
-		requireStack[#requireStack + 1] = moduleName
-		modules[moduleName] = require(moduleScript)
-		requireStack[#requireStack] = nil
-	end
-
     for moduleName, accessor in accessors do
+		if getmetatable(accessor) then continue end
+
 		local module = modules[moduleName]
 		if not module then
-			error("Failed to find module \"" .. moduleName .. "\".")
+			error(`Failed to find module "{moduleName}".`)
 		end
 
 		local metatable
@@ -107,25 +83,26 @@ function Quilt.Initialize()
 
 		setmetatable(accessor, metatable)
     end
-
-	initialized = true
 end
 
 function Quilt.Import(moduleName: string): table
 	if not table.find(requireStack, moduleName) then
-		getModuleScripts()
-		if not moduleScripts[moduleName] then
-			error("Failed to find module \"" .. moduleName .. "\".")
+		getModules()
+		local moduleScript = moduleScripts[moduleName]
+		if not moduleScript then
+			error(`Failed to find module "{moduleName}".`)
 		end
 
 		requireStack[#requireStack + 1] = moduleName
-		local module = require(moduleScripts[moduleName])
+		local module = require(moduleScript)
+		modules[moduleName] = module
 		requireStack[#requireStack] = nil
-		return module
-	end
 
-	if initialized then
-		error("Failed to find module \"" .. moduleName .. "\".")
+		if #requireStack == 0 then
+			Quilt.Initialize()
+		end
+
+		return module
 	end
 
     if not accessors[moduleName] then
