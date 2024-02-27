@@ -10,7 +10,6 @@ local RunService = game:GetService("RunService")
 
 local MODULE_LOCATIONS = {
 	workspace,
-	game.Players,
 	game.Lighting,
 	game.ReplicatedFirst,
 	game.ReplicatedStorage,
