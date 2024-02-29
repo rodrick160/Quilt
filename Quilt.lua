@@ -79,31 +79,34 @@ local function initialize()
 end
 
 local function import(moduleName: string): table
-	if not table.find(requireStack, moduleName) then
+	local callingScriptName = debug.info(2, "s"):match("%w+$")
+	requireStack[#requireStack + 1] = callingScriptName
+
+	if table.find(requireStack, moduleName) then
+		if not accessors[moduleName] then
+			accessors[moduleName] = {}
+		end
+		local accessor = accessors[moduleName]
+
+		requireStack[#requireStack] = nil
+		return accessor
+	else
 		getModules()
 		local moduleScript = moduleScripts[moduleName]
 		if not moduleScript then
 			error(`Failed to find module "{moduleName}".`)
 		end
 
-		requireStack[#requireStack + 1] = moduleName
 		local module = require(moduleScript)
 		modules[moduleName] = module
-		requireStack[#requireStack] = nil
 
 		if #requireStack == 0 then
 			initialize()
 		end
 
+		requireStack[#requireStack] = nil
 		return module
 	end
-
-    if not accessors[moduleName] then
-        accessors[moduleName] = {}
-    end
-    local accessor = accessors[moduleName]
-
-    return accessor
 end
 
 --\\ Return //--

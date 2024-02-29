@@ -1,7 +1,7 @@
 [package]
 name = "rodrick160/quilt"
 description = "A module importer with simple syntax and support for recursive imports."
-version = "0.2.1"
+version = "0.2.2"
 license = "MPL 2.0"
 authors = ["Sebastian Seifert"]
 realm = "shared"
