@@ -1,0 +1,22 @@
+{
+	"name": "Quilt Test Env",
+	"emitLegacyScripts": false,
+	"tree": {
+	  "$className": "DataModel",
+	  "ReplicatedStorage": {
+		"$className": "ReplicatedStorage",
+		"Packages": {
+			"$className": "Folder",
+			"Quilt": {
+				"$path": "Quilt"
+			}
+		}
+	  },
+	  "ServerScriptService": {
+		"$className": "ServerScriptService",
+		"Server": {
+		  "$path": "Test"
+		}
+	  }
+	}
+  }
