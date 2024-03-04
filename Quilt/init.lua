@@ -97,9 +97,18 @@ end
 
 --\\ Public //--
 
-function Quilt.Import(module: string | ModuleScript): any
-	return import(module)
-end
+Quilt.Import = setmetatable({
+	Server = function(...)
+		return if RunService:IsServer() then import(...) else {}
+	end,
+	Client = function(...)
+		return if RunService:IsClient() then import(...) else {}
+	end
+}, {
+	__call = function(_, ...)
+		return import(...)
+	end
+})
 
 function Quilt.LoadChildren(parent: Instance, predicate: PredicateFn?)
 	return loadList(parent:GetChildren(), predicate)
