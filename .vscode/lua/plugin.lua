@@ -89,6 +89,8 @@ end
 --\\ Public //--
 
 function OnSetText(_, text)
+	if text:match("Quilt LSP Plugin") then return end
+
 	buildProjectJsonMap()
 	buildQuiltPath()
 
@@ -116,18 +118,35 @@ function OnSetText(_, text)
 		}
 	end
 
-	if quiltPath then
-		local importText, lineEnd = text:match("(%w+)%s*=%s*require%(" .. quiltPath .. "%)()")
-		if not importText then return end
+	local mapBuilt = false
 
+	for moduleStart, moduleName, moduleEnd in text:gmatch("local%s+%w+%s()---@module (%w+)()") do
+		local gamePath = getModuleGamePath(moduleName)
+
+		if not gamePath and not mapBuilt then
+			mapBuilt = true
+			buildModuleMap()
+			gamePath = getModuleGamePath(moduleName)
+		end
+
+		if gamePath then
+			diffs[#diffs + 1] = {
+				start = moduleStart,
+				finish = moduleEnd - 1,
+				text = ("= require(%s)"):format(gamePath)
+			}
+		end
+	end
+
+	local importText, lineEnd = text:match("(%w+)%s*=%s*[^\r\n]*Import()\r\n")
+	if quiltPath and importText then
 		diffs[#diffs+1] = {
 			start = lineEnd,
 			finish = lineEnd - 1,
 			text = "\n---@diagnostic disable-next-line: empty-block\nif " .. importText .. " then end"
 		}
 
-		local mapBuilt = false
-		for moduleStart, moduleName, moduleEnd in text:gmatch("local%s+%w+%s*=%s*()" .. importText .. "%s*%(?%s*\"([%w_]+)\"%s-%)?().") do
+		local function handleImport(moduleStart, moduleName, moduleEnd)
 			local gamePath = getModuleGamePath(moduleName)
 
 			if not gamePath and not mapBuilt then
@@ -143,6 +162,16 @@ function OnSetText(_, text)
 					text = ("require(%s)"):format(gamePath)
 				}
 			end
+		end
+
+		for moduleStart, moduleName, moduleEnd in text:gmatch("local%s+%w+%s*=%s*()" .. importText .. "%s*%(?%s*\"([%w_]+)\"%s-%)?().") do
+			handleImport(moduleStart, moduleName, moduleEnd)
+		end
+		for moduleStart, moduleName, moduleEnd in text:gmatch("local%s+%w+%s*=%s*()" .. importText .. "%.Server%s*%(?%s*\"([%w_]+)\"%s-%)?().") do
+			handleImport(moduleStart, moduleName, moduleEnd)
+		end
+		for moduleStart, moduleName, moduleEnd in text:gmatch("local%s+%w+%s*=%s*()" .. importText .. "%.Client%s*%(?%s*\"([%w_]+)\"%s-%)?().") do
+			handleImport(moduleStart, moduleName, moduleEnd)
 		end
 	end
 

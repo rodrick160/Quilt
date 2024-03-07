@@ -99,10 +99,10 @@ end
 
 Quilt.Import = setmetatable({
 	Server = function(...)
-		return if RunService:IsServer() then import(...) else {}
+		return if RunService:IsServer() then import(...) else nil
 	end,
 	Client = function(...)
-		return if RunService:IsClient() then import(...) else {}
+		return if RunService:IsClient() then import(...) else nil
 	end
 }, {
 	__call = function(_, ...)
